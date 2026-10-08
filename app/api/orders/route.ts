@@ -6,7 +6,6 @@ export async function POST(request: Request) {
     const body = await request.json();
     const {
       pkrAmount,
-      usdtAmount,
       paymentMethodId,
       userUsdtWallet,
       userPhone,
@@ -15,9 +14,11 @@ export async function POST(request: Request) {
       proofTxRef,
     } = body;
 
-    if (!pkrAmount || !usdtAmount || !userUsdtWallet || !paymentMethodId) {
+    const numPkr = Number(pkrAmount);
+
+    if (!numPkr || isNaN(numPkr) || numPkr <= 0 || !userUsdtWallet || !paymentMethodId) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields (amount, wallet address, or payment method).' },
+        { success: false, error: 'Missing or invalid required fields (amount, wallet address, or payment method).' },
         { status: 400 }
       );
     }
@@ -26,16 +27,19 @@ export async function POST(request: Request) {
     const cleanWallet = userUsdtWallet.trim();
     if (!cleanWallet.startsWith('T') || cleanWallet.length < 30) {
       return NextResponse.json(
-        { success: false, error: 'Invalid TRC-20 USDT Wallet Address. Must start with "T".' },
+        { success: false, error: 'Invalid TRC-20 USDT Wallet Address. Address must start with "T".' },
         { status: 400 }
       );
     }
 
-    // Fetch active rate
+    // Fetch active exchange rate from database
     const rateRecord = await prisma.exchangeRate.findUnique({
       where: { pair: 'PKR_USDT' },
     });
     const currentRate = rateRecord?.rate || 282.50;
+
+    // Server-side calculated USDT amount (prevents price tampering)
+    const calculatedUsdt = Math.round((numPkr / currentRate) * 10000) / 10000;
 
     // Fetch payment method name
     const paymentMethod = await prisma.paymentMethod.findUnique({
@@ -55,8 +59,8 @@ export async function POST(request: Request) {
     const order = await prisma.order.create({
       data: {
         orderNumber,
-        pkrAmount: Number(pkrAmount),
-        usdtAmount: Number(usdtAmount),
+        pkrAmount: numPkr,
+        usdtAmount: calculatedUsdt,
         exchangeRate: currentRate,
         paymentMethodId: paymentMethod.id,
         paymentMethodName: paymentMethod.name,
