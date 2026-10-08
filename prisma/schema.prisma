@@ -1,0 +1,55 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model ExchangeRate {
+  id        String   @id @default(uuid())
+  pair      String   @unique @default("PKR_USDT")
+  rate      Float    @default(282.50)
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+model PaymentMethod {
+  id            String   @id @default(uuid())
+  name          String
+  accountTitle  String
+  accountNumber String
+  instructions  String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Order {
+  id                 String   @id @default(uuid())
+  orderNumber        String   @unique
+  pkrAmount          Float
+  usdtAmount         Float
+  exchangeRate       Float
+  paymentMethodId    String?
+  paymentMethodName  String
+  userUsdtWallet     String
+  userPhone          String?
+  userEmail          String?
+  proofScreenshotUrl String?
+  proofTxRef         String?
+  status             String   @default("PENDING")
+  adminNote          String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model AdminSettings {
+  id         String   @id @default("default")
+  adminPin   String   @default("123456")
+  minPkr     Float    @default(500)
+  maxPkr     Float    @default(1000000)
+  noticeText String?  @default("Instant USDT delivery upon receipt verification. Operating hours 24/7.")
+  updatedAt  DateTime @updatedAt
+}
